@@ -1,0 +1,60 @@
+services:
+  web:
+    build: ./publishit_api
+    ports:
+      - 8000:8000
+    command:  sh /usr/src/app/entrypoint.sh
+    restart: always
+    env_file:
+      - ./.env.sample
+    volumes:
+      - static_volume:/usr/src/app/staticfiles
+    depends_on:
+      - db
+      - redis
+      - celery_worker
+  db:
+    image: postgres:latest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=sample_user
+      - POSTGRES_PASSWORD=sample_pass
+      - POSTGRES_DB=sample_db
+  nginx:
+    build: ./nginx
+    ports:
+      - 80:80
+    volumes:
+      - static_volume:/staticfiles
+    depends_on:
+      - web
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+  celery_worker:
+    build: ./publishit_api
+    command: celery -A config worker --loglevel=info
+    depends_on:
+      - redis
+      - db
+    env_file:
+      - ./.env.sample
+    volumes:
+      - static_volume:/usr/src/app/staticfiles
+
+  celery_beat:
+    build: ./publishit_api
+    command: celery -A config beat --loglevel=info
+    depends_on:
+      - redis
+      - db
+    env_file:
+      - ./.env.sample
+    volumes:
+      - static_volume:/usr/src/app/staticfiles
+  
+volumes:
+  postgres_data:
+  static_volume:
